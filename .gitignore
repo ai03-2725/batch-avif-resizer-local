@@ -1,0 +1,4 @@
+workdir/_SOURCE_FILES/*
+!workdir/_SOURCE_FILES/files_here
+workdir/_OUTPUT/*
+!workdir/_OUTPUT/files_here
