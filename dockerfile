@@ -10,7 +10,7 @@ ENV PYTHONUNBUFFERED 1
 
 # Install required software 
 RUN pip install --upgrade pip
-RUN apk add --no-cache imagemagick 
+RUN apk add --no-cache imagemagick imagemagick-heic imagemagick-jpeg imagemagick-pdf imagemagick-svg imagemagick-webp
 
 # Copy python files
 COPY ./image_autoresize.py .
