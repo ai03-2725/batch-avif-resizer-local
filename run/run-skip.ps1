@@ -1,1 +1,1 @@
-docker run -v ${PWD}/workdir:/app/workdir --rm -it custom-image-autoresize:latest -c "-s"
+docker run -v ${PWD}/workdir:/app/workdir --rm -it custom-image-autoresize:latest -s
