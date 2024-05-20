@@ -14,8 +14,8 @@ EXIF_EXTS = ["jpg", "jpeg", "webp"]
 IMAGE_SIZES = [
   # ((3840, 2561), 1.5 * 1000 * 1000), # 4K -> 1.5MB (Only used for very hires gallery views where load times aren't crucial)
   ((2560, 2049), 500 * 1000), # 2560 -> 500KB (Heros and backgrounds)
-  ((2048, 1501), 300 * 1000), # 2048 -> 300KB (Large gallery views)
-  ((1500, 0), 200 * 1000), # 1500 -> 200KB (Small size images for cards and similar)
+  ((2048, 1025), 300 * 1000), # 2048 -> 300KB (Large gallery views)
+  ((1024, 0), 100 * 1000), # 1024 -> 100KB (Thumbnail-tier)
 ]
 NO_RESIZE_MULTIPLIER = 0.4
 
