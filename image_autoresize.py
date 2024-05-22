@@ -12,11 +12,11 @@ EXIF_EXTS = ["jpg", "jpeg", "webp"]
 
 # A set of resolution ranges and absolute max filesizes (in bytes) per
 IMAGE_SIZES = [
-  # ((3840, 2561), 1.5 * 1000 * 1000), # 4K -> 1.5MB (Only used for very hires gallery views where load times aren't crucial)
-  ((2560, 2049), 500 * 1000), # 2560 -> 500KB (Heros and backgrounds)
-  ((2048, 1025), 300 * 1000), # 2048 -> 300KB (Large gallery views)
-  ((1024, 0), 100 * 1000), # 1024 -> 100KB (Medium views)
-  ((256, 0), 10 * 1000), # 256 -> 10KB (Thumbnail-tier)
+  # ((3840, 2561), 1.5 * 1000 * 1000, "giantsize"), # 4K -> 1.5MB (Only used for very hires gallery views where load times aren't crucial)
+  ((2560, 2049), 500 * 1000, "fullsize"), # 2560 -> 500KB (Heros and backgrounds)
+  ((2048, 1025), 300 * 1000, "largesize"), # 2048 -> 300KB (Large gallery views)
+  ((1024, 257), 100 * 1000, "mediumsize"), # 1024 -> 100KB (Medium views)
+  ((256, 0), 10 * 1000, "thumbnail"), # 256 -> 10KB (Thumbnail-tier)
 ]
 NO_RESIZE_MULTIPLIER = 0.4
 
@@ -25,7 +25,7 @@ LOWEST_QUALITY = 50
 
 
 class Resizer:
-  def __new__(cls, source: str, dest: str, size: int):
+  def __new__(cls, source: str, dest: str, size: int, size_identifier: str):
     print(f"Resizer running on dest {dest} size {size}")
     # Handles calling imagick, filesize comparing, etc
     # If size is 0, doesn't resize
@@ -119,9 +119,9 @@ class Resizer:
         break
       
     # Final result comparison - copy source over directly if output ends up larger than input
-    # TODO: This ignores sizes; what to do?
-    # For treat the extra resolution as "free" since it's better than the best effort resize anyways
-    if os.path.getsize(dest) >= os.path.getsize(source):
+    # If this yields a size larger than the intended breakpoint, treat it as "free" resolution since it's better than our best-effort resize anyways
+    # If the size_identifier is "thumbnail", never direct-copy and enforce avif out
+    if size_identifier != "thumbnail" and os.path.getsize(dest) >= os.path.getsize(source):
       # Let caller handle this
       return 2
     
@@ -213,9 +213,12 @@ if __name__ == "__main__":
       # Create each size
       for max_dimen in resize_list_for_image:
         # Generate output filename and path
-        size_identifier = f"{max_dimen}"
-        if max_dimen not in breakpoints_list:
-          size_identifier = f"{max_dimen}_origsize"
+        
+        size_identifier = [ size[2] for size in IMAGE_SIZES if size[0][0] >= max_dimen and max_dimen >= size[0][1] ][0]
+        
+        # size_identifier = f"{max_dimen}"
+        # if max_dimen not in breakpoints_list:
+          # size_identifier = f"{max_dimen}_origsize"
         output_filename = f"{filename_separated[0]}_{size_identifier}.avif"
         full_output_file_path = os.path.join(output_root, output_filename)
         
@@ -224,7 +227,7 @@ if __name__ == "__main__":
           files_skipped.append(full_output_file_path)
           continue
         
-        resize_ret_value = Resizer(full_input_file_path, full_output_file_path, max_dimen)
+        resize_ret_value = Resizer(full_input_file_path, full_output_file_path, max_dimen, size_identifier)
         
         match resize_ret_value:
           
@@ -254,7 +257,7 @@ if __name__ == "__main__":
               os.remove(full_output_file_path)
               
             # Copy file
-            direct_copy_target_filename = f"_{max_dimen}_directcopy".join(file.split("_orig"))
+            direct_copy_target_filename = f"_{size_identifier}".join(file.split("_orig"))
             shutil.copy2(full_input_file_path, os.path.join(output_root, direct_copy_target_filename))
             # Remove EXIF for supported filetypes
             if filename_separated_by_dot[-1].casefold() in EXIF_EXTS:
