@@ -3,6 +3,7 @@ import shutil
 import argparse
 
 from PIL import Image
+import pillow_avif
 import piexif
 
 
@@ -13,9 +14,8 @@ EXIF_EXTS = ["jpg", "jpeg", "webp"]
 # A set of resolution ranges and absolute max filesizes (in bytes) per
 IMAGE_SIZES = [
   # ((3840, 2561), 1.5 * 1000 * 1000, "giantsize"), # 4K -> 1.5MB (Only used for very hires gallery views where load times aren't crucial)
-  ((2560, 2049), 500 * 1000, "fullsize"), # 2560 -> 500KB (Heros and backgrounds)
-  ((2048, 1025), 300 * 1000, "largesize"), # 2048 -> 300KB (Large gallery views)
-  ((1024, 257), 100 * 1000, "mediumsize"), # 1024 -> 100KB (Medium views)
+  ((2560, 1501), 500 * 1000, "large"), # 2560 -> 500KB (Heros, backgrounds, gallery)
+  ((1500, 257), 300 * 1000, "medium"), # 1500 -> 300KB (Standard use)
   ((256, 0), 10 * 1000, "thumbnail"), # 256 -> 10KB (Thumbnail-tier)
 ]
 NO_RESIZE_MULTIPLIER = 0.4
@@ -133,9 +133,7 @@ if __name__ == "__main__":
   description_cmd = """Image converter for generating web-friendly images from source.
 
 - The structure of _SOURCE_FILES is replicated to _OUTPUT.
-- For any encountered non-image file, the file is copied directly over to _OUTPUT.
-- For any encountered image file that contains _orig, the file is compressed/resized as necessary to _OUTPUT.
-- For any encountered image files that doesn't contain _orig, the file is skipped.
+- Non-image files are copied to the output.
 
 """
   arg_parser = argparse.ArgumentParser(
@@ -183,18 +181,14 @@ if __name__ == "__main__":
         continue
       
       # Otherwise, the file is an image
-      if "_orig." not in file:
-        print(f"Image file {file} is not marked _orig - skipping")
-        files_error.append((full_input_file_path, "Image file not marked _orig"))
-        continue
-      
-      filename_separated = file.split("_orig.") # Yields ["filename_bit", "extension_without_dot"]
+      filename_separated = file.rsplit(".", 1) # Yields ["filename_bit", "extension_without_dot"]
       
       # Generate all filesizes necessary        
       try:        
         image_source = Image.open(full_input_file_path)
-      except:
-        files_error.append((full_output_file_path, "Image.open() failed on source"))
+      except Exception as e:
+        files_error.append((full_input_file_path, f"Image.open() failed on source A: {repr(e)}"))
+        continue
       source_max_dimen = max(image_source.width, image_source.height)
       image_source.close()
       
@@ -216,10 +210,7 @@ if __name__ == "__main__":
         
         size_identifier = [ size[2] for size in IMAGE_SIZES if size[0][0] >= max_dimen and max_dimen >= size[0][1] ][0]
         
-        # size_identifier = f"{max_dimen}"
-        # if max_dimen not in breakpoints_list:
-          # size_identifier = f"{max_dimen}_origsize"
-        output_filename = f"{filename_separated[0]}_{size_identifier}.avif"
+        output_filename = f"{filename_separated[0]}-{size_identifier}.avif"
         full_output_file_path = os.path.join(output_root, output_filename)
         
         if args.skip_existing == True and os.path.exists(full_output_file_path):
@@ -237,7 +228,7 @@ if __name__ == "__main__":
             
           # -1 - Failed due to failed Image.open()
           case -1:
-            files_error.append((full_output_file_path, "Image.open() failed on source"))
+            files_error.append((full_output_file_path, "Image.open() failed on source B"))
           
           # -2 - imagick returned an error
           case -2:
@@ -257,7 +248,7 @@ if __name__ == "__main__":
               os.remove(full_output_file_path)
               
             # Copy file
-            direct_copy_target_filename = f"_{size_identifier}".join(file.split("_orig"))
+            direct_copy_target_filename = f"-{size_identifier}.".join(file.rsplit(".", 1))
             shutil.copy2(full_input_file_path, os.path.join(output_root, direct_copy_target_filename))
             # Remove EXIF for supported filetypes
             if filename_separated_by_dot[-1].casefold() in EXIF_EXTS:
